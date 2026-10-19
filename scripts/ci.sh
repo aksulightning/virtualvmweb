@@ -4,10 +4,7 @@ set -eu
 apk add --no-cache cargo rust rustfmt rust-clippy build-base pkgconf libvirt-dev libvirt-client libvirt-common-drivers git python3 nodejs
 export RUSTFLAGS='-C target-feature=-crt-static'
 mkdir -p dist
-format_status=0
-cargo fmt --all --check > dist/format-check.txt 2>&1 || format_status=$?
-if [ "$format_status" -ne 0 ]; then cargo fmt --all; fi
-git -c safe.directory=/work diff -- src > dist/formatted.patch
+cargo fmt --all --check
 python3 scripts/check-docs.py
 cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked
@@ -17,6 +14,4 @@ sh scripts/fetch-novnc.sh
 cargo build --locked --release
 sh scripts/package.sh
 python3 scripts/http-smoke.py
-# The formatting gate remains failing until formatted sources are committed.
-exit "$format_status"
 

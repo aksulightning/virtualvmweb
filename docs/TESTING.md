@@ -8,6 +8,12 @@ The test driver verifies libvirt integration but does **not** emulate QEMU, stor
 
 Test-only credentials/configuration are generated in a temporary directory and are not included in release archives. Redacted HTML previews are saved for visual inspection. Any unrun checks must be reported as unverified.
 
+## Recorded CI evidence
+
+On 2026-10-19, [run 39279261962](https://github.com/aksulightning/virtualvmweb/actions/runs/39279261962) passed formatting, Clippy, all 12 Rust tests, the release HTTP smoke test and real QEMU/KVM integration. The latter exercised wizard creation, offline edits, lifecycle operations, the VNC handshake, logout revocation and disk deletion safeguards. Its separate Chromium screenshot step failed; this run is not an overall green CI result.
+
+The one-guest libvirt test-driver measurement was 20,624 KiB RSS, a 3,787,760-byte release binary and 0.57 ms median / 0.89 ms maximum for twenty local HTTP requests. These are small synthetic smoke measurements, not production capacity or guest workload benchmarks. Each subsequent CI run publishes its own measurements and browser screenshots in the `alpine-build` artifact.
+
 ## Real-host acceptance (Alpine + KVM)
 
 Use a disposable guest and empty test directory pool; never reuse production disks. Confirm the dedicated service account can manage `qemu:///system` and `/dev/kvm` is available. Place a bootable x86_64 ISO in the configured ISO directory and prepare an active network.
@@ -21,5 +27,5 @@ Use a disposable guest and empty test directory pool; never reuse production dis
 7. Open a console, log out in another tab and confirm access closes. Test missing/incorrect Origin and expired sessions.
 8. Temporarily stop libvirtd and verify a clear outage/stale-state indication, then restore it and confirm reconnection.
 
-Record the Alpine/libvirt/QEMU/browser versions and outcomes. Real KVM boot, OS installation, OpenRC reboot ordering and HTTPS proxy behavior remain unverified until this host test is performed; CI test-driver success alone must never be presented as proof of them.
+Record the Alpine/libvirt/QEMU/browser versions and outcomes. Full guest OS boot and installation, OpenRC reboot ordering and HTTPS proxy behavior remain unverified until this host test is performed; CI success alone must never be presented as proof of them.
 
