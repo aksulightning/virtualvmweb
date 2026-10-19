@@ -1,0 +1,7 @@
+/target/
+/vendor/
+/dist/
+*.local.toml
+
+__pycache__/
+/.cargo-ci/

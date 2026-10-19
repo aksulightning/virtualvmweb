@@ -1,0 +1,9 @@
+# virtualvmweb configuration. Copy to config.toml and replace the password hash.
+listen = "127.0.0.1:8080"
+public_origin = "http://127.0.0.1:8080"
+libvirt_uri = "qemu:///system"
+admin_user = "admin"
+password_hash = "REPLACE_WITH_ARGON2ID_HASH"
+iso_dir = "/var/lib/libvirt/boot"
+novnc_dir = "/usr/share/virtualvmweb/novnc"
+

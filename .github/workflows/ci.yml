@@ -1,0 +1,64 @@
+# Build and verify the Alpine-only service in disposable CI environments.
+name: Alpine CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: alpine-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  alpine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            .cargo-ci/
+            target/
+          key: alpine3.23-rust191-${{ hashFiles('Cargo.lock') }}-${{ github.sha }}
+          restore-keys: alpine3.23-rust191-${{ hashFiles('Cargo.lock') }}-
+      - name: Build, lint and test on Alpine 3.23 x86_64
+        id: build
+        run: docker run --rm -e CARGO_HOME=/work/.cargo-ci -v "$PWD:/work" -w /work alpine:3.23 sh scripts/ci.sh
+      - name: Real libvirt and QEMU console smoke test
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          test -x target/release/virtualvmweb
+          docker run --rm --privileged -e VIRTUALVMWEB_DISPOSABLE_CI=yes -v "$PWD:/work" -w /work alpine:3.23 sh scripts/qemu-smoke.sh
+      - name: Restore CI artifact ownership
+        if: always()
+        run: |
+          for directory in dist .cargo-ci target; do
+            if [ -d "$directory" ]; then sudo chown -R "$(id -u):$(id -g)" "$directory"; fi
+          done
+      - name: Browser layout and interaction checks
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          test -f dist/previews/dashboard.html
+          npm install --prefix "$RUNNER_TEMP/vvw-browser" --no-audit --no-fund playwright@1.62.1
+          "$RUNNER_TEMP/vvw-browser/node_modules/.bin/playwright" install --with-deps chromium
+          VIRTUALVMWEB_PLAYWRIGHT="$RUNNER_TEMP/vvw-browser/node_modules/playwright" node scripts/browser-check.cjs
+      - name: Save verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpine-build
+          path: |
+            dist/
+            Cargo.lock
+          if-no-files-found: warn
+      - name: Cache Alpine build outputs
+        if: ${{ always() && !cancelled() }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .cargo-ci/
+            target/
+          key: alpine3.23-rust191-${{ hashFiles('Cargo.lock') }}-${{ github.sha }}
+

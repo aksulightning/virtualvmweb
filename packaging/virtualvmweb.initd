@@ -1,0 +1,26 @@
+#!/sbin/openrc-run
+# Run the web service as a dedicated user with explicitly granted libvirt access.
+name="virtualvmweb"
+description="Local libvirt web administration"
+command="/usr/bin/virtualvmweb"
+command_args="--config /etc/virtualvmweb/config.toml"
+command_user="virtualvmweb:virtualvmweb"
+supervisor="supervise-daemon"
+respawn_delay=5
+respawn_max=5
+respawn_period=60
+retry="TERM/30/KILL/5"
+output_log="/var/log/virtualvmweb/service.log"
+error_log="/var/log/virtualvmweb/service.log"
+
+# Order startup after the local libvirt daemon; this service never starts guests itself.
+depend() {
+    need net libvirtd
+    after firewall
+}
+
+# Prepare only service-owned log files; root owns configuration and static assets.
+start_pre() {
+    checkpath --directory --mode 0750 --owner virtualvmweb:virtualvmweb /var/log/virtualvmweb
+    checkpath --file --mode 0640 --owner virtualvmweb:virtualvmweb /var/log/virtualvmweb/service.log
+}
