@@ -1,7 +1,7 @@
 #!/bin/sh
 # Vendor an immutable upstream noVNC release, including its license notices.
 set -eu
-revision=a8dfd6a3ea3c74244f5ebdaa5a7f1023007a7820
+revision=63107bd06d9e1f6136ff21aeda8cd62cbf0d433e
 destination=vendor/novnc
 if [ -f "$destination/REVISION" ] && [ "$(cat "$destination/REVISION")" = "$revision" ] && [ -f "$destination/core/rfb.js" ]; then exit 0; fi
 stage=$(mktemp -d)

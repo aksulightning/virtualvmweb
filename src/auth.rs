@@ -88,6 +88,12 @@ impl Auth {
         self.sessions.lock().map_err(Error::internal)?.remove(id);
         Ok(())
     }
+
+    /// Revokes every session so graceful shutdown also terminates active console bridges.
+    pub fn revoke_all(&self) -> Result<()> {
+        self.sessions.lock().map_err(Error::internal)?.clear();
+        Ok(())
+    }
 }
 
 impl Session {

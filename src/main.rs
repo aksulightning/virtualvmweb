@@ -103,17 +103,20 @@ async fn run() -> error::Result<()> {
         .await
         .map_err(error::Error::internal)?;
     tracing::info!(%listen, "virtualvmweb listening");
-    axum::serve(listener, routes::router(app))
-        .with_graceful_shutdown(shutdown())
+    axum::serve(listener, routes::router(app.clone()))
+        .with_graceful_shutdown(shutdown(app.auth.clone()))
         .await
         .map_err(error::Error::internal)
 }
 
 /// Handles OpenRC's SIGTERM as well as Ctrl-C; process exit drops all session state.
-async fn shutdown() {
+async fn shutdown(auth: Arc<auth::Auth>) {
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         .expect("register SIGTERM handler");
     tokio::select! { _ = tokio::signal::ctrl_c() => (), _ = terminate.recv() => () }
+    if let Err(error) = auth.revoke_all() {
+        tracing::error!(?error, "session revocation during shutdown failed");
+    }
 }
 
 /// Regression tests for authorization, input boundaries and XML preservation.

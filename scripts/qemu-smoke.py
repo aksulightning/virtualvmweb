@@ -61,7 +61,7 @@ novnc_dir = "{Path('vendor/novnc').resolve()}"
                 csrf = re.search(r'name="csrf" value="([a-f0-9]+)"', text).group(1)
                 fields = {'csrf': csrf, 'name': 'vvw-ci-guest', 'cpus': 1, 'memory_mib': 256, 'disk_gib': 1, 'pool': 'vvw-ci', 'network': 'vvw-ci', 'iso': 'fixture.iso'}
                 fetch('/machines/preview', fields)
-                assert not subprocess.check_output(VIRSH + ['vol-list', 'vvw-ci', '--name'], text=True).strip()
+                assert not any(Path('/var/lib/libvirt/images/vvw-ci').iterdir())
                 capabilities = subprocess.check_output(VIRSH + ['capabilities'], text=True)
                 acceleration = 'kvm' if "type='kvm'" in capabilities or 'type="kvm"' in capabilities else 'tcg'
                 if acceleration == 'kvm':

@@ -45,6 +45,9 @@ fn set_text(root: &mut Element, key: &str, value: String, unit: Option<&str>) {
 pub fn edit_resources(root: &mut Element, cpus: u32, memory_mib: u64) -> Result<()> {
     if root.get_child("vcpus").is_some()
         || root.get_child("maxMemory").is_some()
+        || root.get_child("cputune").is_some()
+        || root.get_child("numatune").is_some()
+        || root.get_child("memtune").is_some()
         || root.get_child("cpu").is_some_and(|cpu| {
             cpu.get_child("topology").is_some() || cpu.get_child("numa").is_some()
         })

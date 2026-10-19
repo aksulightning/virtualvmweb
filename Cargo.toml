@@ -2,7 +2,7 @@
 name = "virtualvmweb"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.91"
 license = "GPL-3.0-only"
 description = "A small Alpine Linux web interface for local libvirt"
 repository = "https://github.com/aksulightning/virtualvmweb"

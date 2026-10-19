@@ -4,3 +4,4 @@
 *.local.toml
 
 __pycache__/
+/.cargo-ci/
