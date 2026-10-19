@@ -4,7 +4,9 @@
 
 GitHub Actions invokes `scripts/ci.sh` inside Alpine 3.23 x86_64. It checks Rust formatting, repository-required comments, Clippy warnings, unit/HTTP tests, actual libvirt test-driver lifecycle calls, JavaScript syntax, the release binary and installation packaging. `scripts/http-smoke.py` logs into the running release server, fetches pages/local noVNC assets, logs out, and writes RSS and twenty-request latency measurements to `dist/measurements.json`.
 
-The test driver verifies libvirt integration but does **not** emulate QEMU, storage allocation, graphical consoles or guest operating systems. Test-only credentials/configuration are generated in a temporary directory and are not included in release archives. Any unrun checks must be reported as unverified.
+The test driver verifies libvirt integration but does **not** emulate QEMU, storage allocation, graphical consoles or guest operating systems. A second disposable privileged CI container runs real libvirt/QEMU: it tests lifecycle operations, a complete RFB initialization over the authenticated WebSocket, hostile-origin rejection, attached-disk deletion refusal and separate detached-disk removal. When the runner provides KVM, it also exercises wizard creation and offline editing; otherwise it records TCG and explicitly marks those KVM checks unverified. No guest OS installation is claimed.
+
+Test-only credentials/configuration are generated in a temporary directory and are not included in release archives. Redacted HTML previews are saved for visual inspection. Any unrun checks must be reported as unverified.
 
 ## Real-host acceptance (Alpine + KVM)
 

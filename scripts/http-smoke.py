@@ -53,9 +53,14 @@ novnc_dir = "{root / 'vendor/novnc'}"
                     assert 'PALVELIN' in text
                     assert response.headers['X-Content-Type-Options'] == 'nosniff'
                 csrf = re.search(r'name="csrf" value="([a-f0-9]+)"', text).group(1)
+                previews = root / 'dist/previews'
+                previews.mkdir(exist_ok=True)
+                (previews / 'dashboard.html').write_text(text.replace(csrf, 'preview-only'))
                 for path in ['/machines', '/storage', '/networks', '/settings', '/machines/new', '/novnc/core/rfb.js']:
                     with client.open(origin + path) as response:
                         assert response.status == 200
+                        if not path.startswith('/novnc'):
+                            (previews / (path.strip('/').replace('/', '-') + '.html')).write_text(response.read().decode().replace(csrf, 'preview-only'))
                 durations = []
                 for _ in range(20):
                     start = time.perf_counter()

@@ -1,10 +1,14 @@
 //! Bounded administrator sessions, CSRF validation and password verification.
 
-use std::{collections::{HashMap, VecDeque}, sync::Mutex, time::{Duration, Instant}};
+use crate::error::{Error, Result};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier, password_hash::SaltString};
 use axum::http::{HeaderMap, StatusCode};
 use rand_core::{OsRng, RngCore};
-use crate::error::{Error, Result};
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Mutex,
+    time::{Duration, Instant},
+};
 
 /// Absolute session lifetime; activity does not extend a stolen cookie's validity.
 const LIFETIME: Duration = Duration::from_secs(8 * 3600);
@@ -31,7 +35,10 @@ impl Auth {
         let mut attempts = self.attempts.lock().map_err(Error::internal)?;
         attempts.retain(|at| now.duration_since(*at) < Duration::from_secs(60));
         if attempts.len() >= 5 {
-            return Err(Error(StatusCode::TOO_MANY_REQUESTS, "Liian monta kirjautumisyritystä. Odota minuutti.".into()));
+            return Err(Error(
+                StatusCode::TOO_MANY_REQUESTS,
+                "Liian monta kirjautumisyritystä. Odota minuutti.".into(),
+            ));
         }
         attempts.push_back(now);
         Ok(())
@@ -39,11 +46,19 @@ impl Auth {
 
     /// Creates a session, evicting the oldest when the sixteen-session bound is reached.
     pub fn create(&self) -> Result<Session> {
-        let session = Session { id: token(), csrf: token(), expires: Instant::now() + LIFETIME };
+        let session = Session {
+            id: token(),
+            csrf: token(),
+            expires: Instant::now() + LIFETIME,
+        };
         let mut sessions = self.sessions.lock().map_err(Error::internal)?;
         sessions.retain(|_, s| s.expires > Instant::now());
         if sessions.len() >= 16 {
-            if let Some(id) = sessions.values().min_by_key(|s| s.expires).map(|s| s.id.clone()) {
+            if let Some(id) = sessions
+                .values()
+                .min_by_key(|s| s.expires)
+                .map(|s| s.id.clone())
+            {
                 sessions.remove(&id);
             }
         }
@@ -59,9 +74,11 @@ impl Auth {
     }
 
     /// Extracts only this application's cookie and checks its server-side record.
-    pub fn from_headers(&self, headers: &HeaderMap) -> Option<Session> {
+    pub fn session_from_headers(&self, headers: &HeaderMap) -> Option<Session> {
         let cookies = headers.get("cookie")?.to_str().ok()?;
-        cookies.split(';').filter_map(|part| part.trim().split_once('='))
+        cookies
+            .split(';')
+            .filter_map(|part| part.trim().split_once('='))
             .find(|(name, _)| *name == "vvw_session")
             .and_then(|(_, id)| self.find(id))
     }
@@ -77,7 +94,10 @@ impl Session {
     /// Rejects cross-site or stale mutation forms before touching libvirt.
     pub fn check_csrf(&self, supplied: &str) -> Result<()> {
         if supplied != self.csrf {
-            return Err(Error(StatusCode::FORBIDDEN, "Lomake on vanhentunut. Lataa sivu uudelleen.".into()));
+            return Err(Error(
+                StatusCode::FORBIDDEN,
+                "Lomake on vanhentunut. Lataa sivu uudelleen.".into(),
+            ));
         }
         Ok(())
     }
@@ -92,19 +112,31 @@ pub fn token() -> String {
 
 /// Verifies an Argon2id hash without implementing custom cryptography.
 pub fn verify(hash: &str, password: &str) -> bool {
-    PasswordHash::new(hash).is_ok_and(|parsed| Argon2::default().verify_password(password.as_bytes(), &parsed).is_ok())
+    PasswordHash::new(hash).is_ok_and(|parsed| {
+        Argon2::default()
+            .verify_password(password.as_bytes(), &parsed)
+            .is_ok()
+    })
 }
 
 /// Generates an administrator hash for a password supplied through standard input.
 pub fn hash_password(password: &str) -> Result<String> {
     if password.len() < 12 || password.len() > 1024 {
-        return Err(Error::bad("Password must contain between 12 and 1024 bytes"));
+        return Err(Error::bad(
+            "Password must contain between 12 and 1024 bytes",
+        ));
     }
-    Argon2::default().hash_password(password.as_bytes(), &SaltString::generate(&mut OsRng))
-        .map(|hash| hash.to_string()).map_err(Error::internal)
+    Argon2::default()
+        .hash_password(password.as_bytes(), &SaltString::generate(&mut OsRng))
+        .map(|hash| hash.to_string())
+        .map_err(Error::internal)
 }
 
 /// Builds a host-only cookie with a fixed path and no JavaScript access.
 pub fn cookie(id: &str, secure: bool, clear: bool) -> String {
-    format!("vvw_session={id}; HttpOnly; SameSite=Strict; Path=/; Max-Age={}{}", if clear { 0 } else { LIFETIME.as_secs() }, if secure { "; Secure" } else { "" })
+    format!(
+        "vvw_session={id}; HttpOnly; SameSite=Strict; Path=/; Max-Age={}{}",
+        if clear { 0 } else { LIFETIME.as_secs() },
+        if secure { "; Secure" } else { "" }
+    )
 }
