@@ -4,12 +4,10 @@ set -eu
 apk add --no-cache cargo rust rustfmt rust-clippy build-base pkgconf libvirt-dev libvirt-client libvirt-common-drivers git python3 nodejs
 export RUSTFLAGS='-C target-feature=-crt-static'
 mkdir -p dist
-# The first bootstrap run exports the resolver result for committing Cargo.lock.
-if [ ! -f Cargo.lock ]; then cargo generate-lockfile; fi
 format_status=0
-cargo fmt --all --check || format_status=$?
+cargo fmt --all --check > dist/format-check.txt 2>&1 || format_status=$?
 if [ "$format_status" -ne 0 ]; then cargo fmt --all; fi
-git diff -- src > dist/formatted.patch
+git -c safe.directory=/work diff -- src > dist/formatted.patch
 python3 scripts/check-docs.py
 cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked
