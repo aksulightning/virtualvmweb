@@ -81,6 +81,12 @@ fn references(node: &xmltree::Element, target: &std::path::Path) -> bool {
         || node.children.iter().filter_map(xmltree::XMLNode::as_element).any(|child| references(child, target))
 }
 
+/// Recognizes libvirt volume-backed disks that name a pool/volume instead of a file path.
+fn volume_reference(node: &xmltree::Element, pool: &str, volume: &str) -> bool {
+    (xml::attr(node, "pool") == pool && xml::attr(node, "volume") == volume)
+        || node.children.iter().filter_map(xmltree::XMLNode::as_element).any(|child| volume_reference(child, pool, volume))
+}
+
 /// Deletes only an explicitly named, detached application disk after fail-closed reference checks.
 pub fn delete_volume(conn: &Connect, pool_name: &str, name: &str, confirmation: &str) -> Result<()> {
     if !managed_name(name) || confirmation != name {
@@ -96,8 +102,10 @@ pub fn delete_volume(conn: &Connect, pool_name: &str, name: &str, confirmation: 
         if dom.has_managed_save(0)? || !dom.list_all_snapshots(0)?.is_empty() {
             return Err(Error::conflict("Levyn turvallista poistoa ei voida varmistaa tallennettujen tilojen tai snapshotien vuoksi."));
         }
-        if references(&xml::parse(&dom.get_xml_desc(0)?)?, &path)
-            || (dom.is_persistent()? && references(&xml::parse(&dom.get_xml_desc(virt::sys::VIR_DOMAIN_XML_INACTIVE)?)?, &path)) {
+        let live = xml::parse(&dom.get_xml_desc(0)?)?;
+        let inactive = if dom.is_persistent()? { Some(xml::parse(&dom.get_xml_desc(virt::sys::VIR_DOMAIN_XML_INACTIVE)?)?) } else { None };
+        if references(&live, &path) || volume_reference(&live, pool_name, name)
+            || inactive.as_ref().is_some_and(|root| references(root, &path) || volume_reference(root, pool_name, name)) {
             return Err(Error::conflict("Levy on yhä virtuaalikoneen käytössä."));
         }
     }
@@ -109,7 +117,8 @@ pub fn delete_volume(conn: &Connect, pool_name: &str, name: &str, confirmation: 
         for other in other_pool.list_all_volumes(0)? {
             let root = xml::parse(&other.get_xml_desc(0)?)?;
             if let Some(backing) = root.get_child("backingStore") {
-                if references(backing, &path) {
+                let relative = backing.get_child("path").and_then(|p| p.get_text()).is_some_and(|p| !p.is_empty() && !p.starts_with('/'));
+                if relative || references(backing, &path) {
                     return Err(Error::conflict("Levy on toisen levykuvan pohjalevy."));
                 }
             }

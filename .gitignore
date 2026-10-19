@@ -3,3 +3,4 @@
 /dist/
 *.local.toml
 
+__pycache__/

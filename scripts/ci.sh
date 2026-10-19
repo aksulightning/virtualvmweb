@@ -1,7 +1,7 @@
 #!/bin/sh
 # Reproducible Alpine build checks; all dependencies stay inside the CI container.
 set -eu
-apk add --no-cache cargo rust rustfmt clippy build-base pkgconf libvirt-dev libvirt-client libvirt-common-drivers git python3 nodejs
+apk add --no-cache cargo rust rustfmt rust-clippy build-base pkgconf libvirt-dev libvirt-client libvirt-common-drivers git python3 nodejs
 export RUSTFLAGS='-C target-feature=-crt-static'
 mkdir -p dist
 # The first bootstrap run exports the resolver result for committing Cargo.lock.
