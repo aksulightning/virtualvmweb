@@ -60,8 +60,7 @@ pub fn supports_uefi(capabilities: &str) -> Result<bool> {
 
 /// Disables UEFI when the host cannot advertise it, without breaking BIOS/test-driver pages.
 pub fn available(conn: &Connect) -> bool {
-    let result =
-        conn.get_domain_capabilities(None, Some("x86_64"), Some("q35"), Some("kvm"), 0);
+    let result = conn.get_domain_capabilities(None, Some("x86_64"), Some("q35"), Some("kvm"), 0);
     match result {
         Ok(text) => supports_uefi(&text).unwrap_or(false),
         Err(error) => {
@@ -74,7 +73,9 @@ pub fn available(conn: &Connect) -> bool {
 /// Rechecks UEFI availability before preview and before allocating any disk.
 pub fn validate(conn: &Connect, firmware: Firmware) -> Result<()> {
     if firmware == Firmware::Uefi && !available(conn) {
-        return Err(Error::bad("UEFI ei ole käytettävissä. Asenna palvelimen OVMF-firmware ja tarkista libvirtin Q35/KVM-tuki."));
+        return Err(Error::bad(
+            "UEFI ei ole käytettävissä. Asenna palvelimen OVMF-firmware ja tarkista libvirtin Q35/KVM-tuki.",
+        ));
     }
     Ok(())
 }
@@ -95,4 +96,3 @@ mod tests {
         assert!(supports_uefi("invalid xml").is_err());
     }
 }
-

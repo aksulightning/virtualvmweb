@@ -5,8 +5,9 @@ use crate::{
     auth::Session,
     backend,
     error::{Error, Result},
+    firmware,
     provision::{self, Create, Edit},
-    firmware, storage, views,
+    storage, views,
 };
 use axum::{
     Extension, Form,
