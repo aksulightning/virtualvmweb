@@ -1,0 +1,20 @@
+# Run the Debian installation as the same dedicated, libvirt-authorized account.
+[Unit]
+Description=virtualvmweb local libvirt administration
+After=network.target libvirtd.service
+
+[Service]
+Type=simple
+User=virtualvmweb
+Group=virtualvmweb
+ExecStart=/usr/bin/virtualvmweb --config /etc/virtualvmweb/config.toml
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=35s
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

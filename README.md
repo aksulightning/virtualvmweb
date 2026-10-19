@@ -16,6 +16,8 @@ Guest configuration belongs to libvirt. There is no application database or Node
 
 ## Build and install
 
+For the additional Debian 13/systemd installation path, see [Debian compatibility instructions](docs/DEBIAN.md). It requires a native Debian build; Alpine remains the primary verified target.
+
 Enable Alpine's `community` repository, then:
 
 ```sh
