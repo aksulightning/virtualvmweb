@@ -51,6 +51,19 @@ fn action(vm: &Machine, session: &Session, operation: &str, label: &str) -> Stri
     )
 }
 
+/// Keeps each destructive operation explicit, with a typed name and a dedicated submit button.
+fn confirmed_action(vm: &Machine, session: &Session, operation: &str, label: &str) -> String {
+    format!(
+        r#"<form method="post" action="/machines/{}/action">{}{}<label>{}: kirjoita koneen nimi<input name="confirmation" required autocomplete="off" placeholder="{}"></label><button class="danger">{}</button></form>"#,
+        vm.id,
+        hidden("csrf", &session.csrf),
+        hidden("operation", operation),
+        escape(label),
+        escape(&vm.name),
+        escape(label)
+    )
+}
+
 /// Displays current guest facts, device inventory and separate destructive controls.
 pub fn detail(vm: &Machine, session: &Session, devices: &[(String, String)], vnc: bool) -> String {
     let (label, class) = state(vm.state);
@@ -107,24 +120,38 @@ pub fn detail(vm: &Machine, session: &Session, devices: &[(String, String)], vnc
             )
         })
         .collect::<String>();
-    let danger_op = if vm.active { "force-off" } else { "undefine" };
-    let danger_label = if vm.active {
-        "Pakkosammuta kone"
-    } else {
-        "Poista koneen määritys"
-    };
+    let mut danger = String::new();
+    if vm.active {
+        danger.push_str(&confirmed_action(
+            vm,
+            session,
+            "force-off",
+            "Pakotettu sammutus",
+        ));
+        if vm.state == 1 {
+            danger.push_str(&confirmed_action(
+                vm,
+                session,
+                "force-reset",
+                "Pakotettu uudelleen käynnistys",
+            ));
+        }
+    } else if vm.persistent {
+        danger.push_str(&confirmed_action(
+            vm,
+            session,
+            "undefine",
+            "Poista koneen määritys",
+        ));
+    }
     format!(
-        r#"<a class="back" href="/machines">← Virtuaalikoneet</a><div class="section-heading"><div><span class="eyebrow">VIRTUAALIKONE</span><h1>{}</h1><span class="status {class}" id="guest-state">{label}</span></div>{console}</div><div class="actions">{actions}</div><p id="refresh-status" class="live-label" role="status">Päivittyy 5 sekunnin välein</p><div class="stats" data-guest="{}"><article><span>Prosessorit</span><strong id="guest-cpus">{}</strong><small>Virtuaalista CPU:ta</small></article><article><span>Varattu muisti</span><strong id="guest-memory">{}</strong><small>MiB · ei vieraan muistinkulutus</small></article><article><span>CPU-kuorma</span><strong id="guest-cpu">—</strong><small>Osuus varatuista vCPU:ista</small></article><article><span>Automaattikäynnistys</span><strong class="text-value">{}</strong><small>Palvelimen käynnistyessä</small></article></div><section class="panel"><div class="panel-title"><h2>Laitteisto</h2><code>{}</code></div><div class="table-scroll"><table><tbody>{device_rows}</tbody></table></div></section><details class="panel danger-panel"><summary>Vaaralliset toiminnot</summary><p>Pakkosammutus voi menettää tallentamattomat tiedot. Määrityksen poisto säilyttää levyt; niiden poistaminen tehdään erikseen Tallennus-sivulla.</p><form method="post" action="/machines/{}/action">{}{}<label>Kirjoita koneen nimi vahvistukseksi<input name="confirmation" required autocomplete="off" placeholder="{}"></label><button class="danger">{danger_label}</button></form></details>"#,
+        r#"<a class="back" href="/machines">← Virtuaalikoneet</a><div class="section-heading"><div><span class="eyebrow">VIRTUAALIKONE</span><h1>{}</h1><span class="status {class}" id="guest-state">{label}</span></div>{console}</div><div class="actions">{actions}</div><p id="refresh-status" class="live-label" role="status">Päivittyy 5 sekunnin välein</p><div class="stats" data-guest="{}"><article><span>Prosessorit</span><strong id="guest-cpus">{}</strong><small>Virtuaalista CPU:ta</small></article><article><span>Varattu muisti</span><strong id="guest-memory">{}</strong><small>MiB · ei vieraan muistinkulutus</small></article><article><span>CPU-kuorma</span><strong id="guest-cpu">—</strong><small>Osuus varatuista vCPU:ista</small></article><article><span>Automaattikäynnistys</span><strong class="text-value">{}</strong><small>Palvelimen käynnistyessä</small></article></div><section class="panel"><div class="panel-title"><h2>Laitteisto</h2><code>{}</code></div><div class="table-scroll"><table><tbody>{device_rows}</tbody></table></div></section><section class="panel danger-panel"><h2>Pakotetut toiminnot ja poisto</h2><p>Pakotettu sammutus ja uudelleenkäynnistys voivat menettää tallentamattomat tiedot. Määrityksen poisto säilyttää levyt ja UEFI-muistin.</p>{danger}</section>"#,
         escape(&vm.name),
         vm.id,
         vm.vcpus,
         vm.memory_mib,
         if vm.autostart { "Käytössä" } else { "Pois" },
-        vm.id,
-        vm.id,
-        hidden("csrf", &session.csrf),
-        hidden("operation", danger_op),
-        escape(&vm.name)
+        vm.id
     )
 }
 

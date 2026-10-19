@@ -18,7 +18,13 @@ fn option(value: &str) -> String {
 }
 
 /// Builds the first wizard step from currently available storage, networks and ISOs.
-pub fn create(session: &Session, pools: &[Pool], networks: &[Network], isos: &[String]) -> String {
+pub fn create(
+    session: &Session,
+    pools: &[Pool],
+    networks: &[Network],
+    isos: &[String],
+    uefi: bool,
+) -> String {
     let pool_options = pools
         .iter()
         .filter(|p| p.active && p.directory)
@@ -30,9 +36,10 @@ pub fn create(session: &Session, pools: &[Pool], networks: &[Network], isos: &[S
         .map(|n| option(&n.name))
         .collect::<String>();
     let iso_options = isos.iter().map(|name| option(name)).collect::<String>();
+    let uefi_disabled = if uefi { "" } else { "disabled" };
     let ready = !pool_options.is_empty() && !network_options.is_empty() && !iso_options.is_empty();
     format!(
-        r#"<a class="back" href="/machines">← Virtuaalikoneet</a><div class="section-heading"><div><span class="eyebrow">UUSI VIRTUAALIKONE</span><h1>Anna koneelle koti.</h1><p class="muted">1. Asetukset <span class="step-separator">→</span> 2. Yhteenveto <span class="step-separator">→</span> 3. Asenna käyttöjärjestelmä</p></div></div><section class="panel form-panel"><form method="post" action="/machines/preview">{}<h2>Perustiedot</h2><label>Koneen nimi<input name="name" required maxlength="64" pattern="[A-Za-z0-9_.\-]+" placeholder="esim. alpine-palvelin" autofocus></label><div class="form-grid"><label>vCPU<input name="cpus" type="number" min="1" max="256" value="2" required></label><label>Muisti (MiB)<input name="memory_mib" type="number" min="128" max="1048576" value="2048" required></label></div><h2>Tallennus ja asennus</h2><div class="form-grid"><label>Tallennuspooli<select name="pool" required>{pool_options}</select></label><label>Uusi qcow2-levy (GiB)<input name="disk_gib" type="number" min="1" max="16384" value="20" required></label></div><label>ISO-kuva<select name="iso" required>{iso_options}</select><small>Palvelimen ylläpitäjän ISO-hakemistosta.</small></label><label>Libvirt-verkko<select name="network" required>{network_options}</select></label><p class="hint">x86_64 · Q35 · BIOS · virtio-levy ja verkko. Kone luodaan sammutettuna. Tarvitset aktiivisen hakemistopoolin, verkon ja ISO-kuvan.</p><button class="primary" {}>Tarkista asetukset →</button></form></section>"#,
+        r#"<a class="back" href="/machines">← Virtuaalikoneet</a><div class="section-heading"><div><span class="eyebrow">UUSI VIRTUAALIKONE</span><h1>Anna koneelle koti.</h1><p class="muted">1. Asetukset <span class="step-separator">→</span> 2. Yhteenveto <span class="step-separator">→</span> 3. Asenna käyttöjärjestelmä</p></div></div><section class="panel form-panel"><form method="post" action="/machines/preview">{}<h2>Perustiedot</h2><label>Koneen nimi<input name="name" required maxlength="64" pattern="[A-Za-z0-9_.\-]+" placeholder="esim. alpine-palvelin" autofocus></label><div class="form-grid"><label>vCPU<input name="cpus" type="number" min="1" max="256" value="2" required></label><label>Muisti (MiB)<input name="memory_mib" type="number" min="128" max="1048576" value="2048" required></label></div><label>Laiteohjelmisto<select name="firmware" required><option value="bios">BIOS</option><option value="uefi" {uefi_disabled}>UEFI</option></select><small>UEFI vaatii palvelimen OVMF-tuen. Secure Boot ei ole käytössä.</small></label><h2>Tallennus ja asennus</h2><div class="form-grid"><label>Tallennuspooli<select name="pool" required>{pool_options}</select></label><label>Uusi qcow2-levy (GiB)<input name="disk_gib" type="number" min="1" max="16384" value="20" required></label></div><label>ISO-kuva<select name="iso" required>{iso_options}</select><small>Palvelimen ylläpitäjän ISO-hakemistosta.</small></label><label>Libvirt-verkko<select name="network" required>{network_options}</select></label><p class="hint">x86_64 · Q35 · virtio-levy ja verkko. Kone luodaan sammutettuna. Tarvitset aktiivisen hakemistopoolin, verkon ja ISO-kuvan.</p><button class="primary" {}>Tarkista asetukset →</button></form></section>"#,
         hidden("csrf", &session.csrf),
         if ready { "" } else { "disabled" }
     )
@@ -57,6 +64,11 @@ pub fn preview(input: &Create) -> String {
             escape(&value)
         ));
     }
+    fields.push_str(&hidden("firmware", input.firmware.value()));
+    rows.push_str(&format!(
+        "<tr><th>Laiteohjelmisto</th><td>{}</td></tr>",
+        input.firmware.label()
+    ));
     format!(
         r#"<div class="section-heading"><div><span class="eyebrow">VAIHE 2 / 3</span><h1>Tarkista asetukset</h1><p class="muted">Uusi levy luodaan vasta vahvistuksen jälkeen.</p></div></div><section class="panel form-panel"><table><tbody>{rows}</tbody></table><form method="post" action="/machines">{fields}{}<label class="check"><input type="checkbox" name="confirm" value="yes" required> Luo uusi levy ja virtuaalikone näillä asetuksilla.</label><div class="actions"><a class="button" href="/machines/new">Takaisin alkuun</a><button class="primary">Luo virtuaalikone →</button></div></form></section>"#,
         hidden("csrf", &input.csrf)

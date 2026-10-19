@@ -5,14 +5,14 @@ A small, server-rendered Rust web interface for **Alpine Linux 3.23 x86_64** and
 ## Included in 0.1
 
 - Host overview, searchable guest inventory and five-second status updates.
-- Start, graceful shutdown, reboot, pause/resume and autostart.
+- Start, graceful shutdown, reboot, pause/resume and autostart; confirmed force-off and hardware reset.
 - Offline CPU/RAM/media editing; advanced CPU/NUMA layouts are explicitly refused.
 - Reviewed creation from a host ISO, an active directory pool and an existing network.
 - noVNC browser console through an authenticated libvirt Unix socket; newly created guests have no VNC network listener.
 - Pool/volume/network inventory; separate, confirmed removal of guest definitions and detached application disks.
 - One administrator, Argon2id passwords, bounded sessions, CSRF/origin checks and action logging.
 
-Guest configuration belongs to libvirt. There is no application database or Node runtime. The Rust executable uses Alpine's shared libvirt library; noVNC files are served locally. New guests use x86_64 Q35/BIOS, virtio disk/network and VGA. Multi-host management, snapshots, migration, PCI passthrough and user roles are outside this release.
+Guest configuration belongs to libvirt. There is no application database or Node runtime. The Rust executable uses Alpine's shared libvirt library; noVNC files are served locally. New guests use x86_64 Q35 with a BIOS/UEFI choice, virtio disk/network and VGA. BIOS is the default; UEFI needs host OVMF firmware and uses libvirt autoselection without Secure Boot. Multi-host management, snapshots, migration, PCI passthrough and user roles are outside this release.
 
 ## Build and install
 

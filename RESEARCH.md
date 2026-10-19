@@ -27,3 +27,10 @@ Reviewed the WHATWG [Fetch standard, appending Origin](https://fetch.spec.whatwg
 The repository already contained the GPLv3 license text; retained unchanged and declared GPL-3.0-only in Cargo metadata. virt/libvirt use LGPL terms; noVNC identifies MPL-2.0 and includes additional third-party notices. The packaging script preserves noVNC's license files and bundled vendor notices. Dependency resolution is recorded in Cargo.lock. No virt-manager code or artwork was copied.
 
 The local `qemu:///system` scope, single administrator, conservative offline edits and separate disk deletion are project design decisions. Runtime libvirt, polkit and ISO filesystem permissions remain host configuration, requiring real-host verification. Alpine wiki KVM/OpenRC search results were consulted during planning, but a direct KVM page fetch returned 403; installation details were subsequently checked against the upstream Alpine package source rather than treating that failed fetch as reviewed documentation.
+
+## Forced power actions and firmware selection — 2026-10-19
+
+- Reviewed [virt 0.4.3 Domain API](https://docs.rs/virt/0.4.3/virt/domain/struct.Domain.html): `reset()` performs immediate hardware reset; `destroy()` powers off; `undefine_flags()` can preserve NVRAM. Require a typed name and current running state for reset.
+- Reviewed [Connect API](https://docs.rs/virt/0.4.3/virt/connect/struct.Connect.html) and [libvirt domain capabilities](https://libvirt.org/formatdomaincaps.html#guest-firmware): query x86_64/Q35/KVM and require OS firmware enum `efi` before offering UEFI.
+- Reviewed [libvirt guest firmware XML](https://libvirt.org/formatdomain.html#guest-firmware): `os firmware='efi'` selects firmware/NVRAM automatically; firmware feature `secure-boot` is explicitly disabled. BIOS preserves the existing default profile. No firmware blobs or upstream code copied.
+- Reviewed OVMF package records for [Alpine 3.23](https://pkgs.alpinelinux.org/package/v3.23/community/x86_64/ovmf) and [Debian 13](https://packages.debian.org/trixie/ovmf). Both provide the optional host firmware package `ovmf`; runtime paths are left to libvirt.

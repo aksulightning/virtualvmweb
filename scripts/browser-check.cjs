@@ -64,6 +64,11 @@ async function run() {
       await page.locator('.empty-filter').waitFor({ state: 'visible' });
       await page.locator('#machine-search').fill('');
       assert.equal(await page.locator('tr[data-name]:visible').count(), 1);
+      await page.locator('.machine-name').click();
+      await page.getByRole('button', { name: 'Pakotettu sammutus', exact: true }).waitFor({ state: 'visible' });
+      await page.getByRole('button', { name: 'Pakotettu uudelleen käynnistys', exact: true }).waitFor({ state: 'visible' });
+      await page.screenshot({ path: `dist/screenshots/${name}-guest.png`, fullPage: true });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
       for (const [suffix, expected] of [['?legacy', 'null'], ['', origin]]) {
         await page.goto(origin + '/login' + suffix);
         await page.locator('[name="username"]').fill('admin');

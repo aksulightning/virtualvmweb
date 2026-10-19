@@ -29,3 +29,7 @@ Use a disposable guest and empty test directory pool; never reuse production dis
 
 Record the Alpine/libvirt/QEMU/browser versions and outcomes. Full guest OS boot and installation, OpenRC reboot ordering and HTTPS proxy behavior remain unverified until this host test is performed; CI success alone must never be presented as proof of them.
 
+
+## Forced power / firmware regression coverage
+
+The QEMU smoke test now rejects incorrect name confirmations and reset requests for paused/stopped guests, performs hardware reset while running, and creates/starts a second Q35/KVM guest using UEFI. It checks that libvirt chose a pflash loader, created NVRAM and preserved NVRAM on undefine. The disposable CI test then explicitly removes its own leftover NVRAM. Unit tests cover firmware capability parsing and preview/XML preservation; browser checks keep both forced-action buttons visible. A real guest OS installation in each firmware mode remains a host acceptance check.

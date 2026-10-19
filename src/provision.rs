@@ -3,6 +3,7 @@
 use crate::{
     backend,
     error::{Error, Result},
+    firmware::{self, Firmware},
     views::escape,
     xml,
 };
@@ -24,6 +25,8 @@ pub struct Create {
     pub pool: String,
     pub network: String,
     pub iso: String,
+    #[serde(default)]
+    pub firmware: Firmware,
     #[serde(default)]
     pub confirm: String,
 }
@@ -108,12 +111,13 @@ pub fn validate(input: &Create, iso_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Constructs our small x86_64 Q35/BIOS guest profile with a libvirt-only VNC listener.
+/// Constructs the x86_64 Q35 guest with selected firmware and a libvirt-only VNC listener.
 pub fn domain_xml(input: &Create, id: &str, disk: &str, iso: &str) -> String {
+    let os = input.firmware.os_open();
     format!(
         r#"<domain type='kvm'><name>{}</name><uuid>{id}</uuid>
 <memory unit='MiB'>{}</memory><currentMemory unit='MiB'>{}</currentMemory><vcpu>{}</vcpu>
-<os><type arch='x86_64' machine='q35'>hvm</type><boot dev='hd'/><boot dev='cdrom'/><bootmenu enable='yes'/></os>
+{os}<type arch='x86_64' machine='q35'>hvm</type><boot dev='hd'/><boot dev='cdrom'/><bootmenu enable='yes'/></os>
 <features><acpi/><apic/></features><cpu mode='host-model'/><clock offset='utc'/>
 <on_poweroff>destroy</on_poweroff><on_reboot>restart</on_reboot><on_crash>destroy</on_crash>
 <devices><disk type='file' device='disk'><driver name='qemu' type='qcow2'/><source file='{}'/><target dev='vda' bus='virtio'/></disk>
@@ -136,6 +140,7 @@ pub fn domain_xml(input: &Create, id: &str, disk: &str, iso: &str) -> String {
 /// Creates a new disk and persistent guest; rolls the disk back if domain definition fails.
 pub fn create(conn: &Connect, input: &Create, iso_dir: &Path) -> Result<String> {
     validate(input, iso_dir)?;
+    firmware::validate(conn, input.firmware)?;
     if input.confirm != "yes" {
         return Err(Error::bad("Vahvista asetukset ennen luontia."));
     }

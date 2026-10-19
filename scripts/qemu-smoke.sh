@@ -2,7 +2,7 @@
 # Disposable privileged CI container only: exercise real libvirt/QEMU without touching a user host.
 set -eu
 test "${VIRTUALVMWEB_DISPOSABLE_CI:-}" = yes
-apk add --no-cache libvirt-qemu qemu-system-x86_64 qemu-img qemu-modules dbus py3-websocket-client
+apk add --no-cache libvirt-qemu qemu-system-x86_64 qemu-img qemu-modules ovmf dbus py3-websocket-client
 mkdir -p /run/libvirt /var/lib/libvirt/images/vvw-ci /tmp/vvw-isos
 # Root-only socket authentication is the boundary in this disposable container.
 # Production uses the dedicated account and polkit described in docs/INSTALL.md.
