@@ -1,0 +1,29 @@
+name: Alpine CI
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: alpine-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  alpine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build, lint and test on Alpine 3.23 x86_64
+        run: docker run --rm -v "$PWD:/work" -w /work alpine:3.23 sh scripts/ci.sh
+      - name: Save verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpine-build
+          path: |
+            dist/
+            Cargo.lock
+          if-no-files-found: warn
+
