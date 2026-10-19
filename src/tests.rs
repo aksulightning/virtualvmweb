@@ -211,7 +211,9 @@ async fn http_authorization_boundaries() {
         let mut invalid = request("POST", "/login", "username=admin&password=unused", None);
         invalid.headers_mut().remove("origin");
         if let Some(value) = origin {
-            invalid.headers_mut().insert("origin", value.parse().unwrap());
+            invalid
+                .headers_mut()
+                .insert("origin", value.parse().unwrap());
         }
         assert_eq!(
             router.clone().oneshot(invalid).await.unwrap().status(),
