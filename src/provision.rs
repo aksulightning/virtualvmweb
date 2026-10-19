@@ -77,10 +77,10 @@ pub fn isos(root: &Path) -> Result<Vec<String>> {
     let mut names = Vec::new();
     for entry in std::fs::read_dir(root).map_err(Error::internal)? {
         let entry = entry.map_err(Error::internal)?;
-        if let Some(name) = entry.file_name().to_str() {
-            if iso_path(root, name).is_ok() {
-                names.push(name.to_string());
-            }
+        if let Some(name) = entry.file_name().to_str()
+            && iso_path(root, name).is_ok()
+        {
+            names.push(name.to_string());
         }
     }
     names.sort();

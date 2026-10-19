@@ -123,8 +123,14 @@ fn volume_reference(node: &xmltree::Element, pool: &str, volume: &str) -> bool {
 /// Fails closed on relative backing paths at any depth in an image chain.
 fn relative_backing(node: &xmltree::Element) -> bool {
     (node.name == "path"
-        && node.get_text().is_some_and(|p| !p.is_empty() && !p.starts_with('/')))
-        || node.children.iter().filter_map(xmltree::XMLNode::as_element).any(relative_backing)
+        && node
+            .get_text()
+            .is_some_and(|p| !p.is_empty() && !p.starts_with('/')))
+        || node
+            .children
+            .iter()
+            .filter_map(xmltree::XMLNode::as_element)
+            .any(relative_backing)
 }
 
 /// Deletes only an explicitly named, detached application disk after fail-closed reference checks.
@@ -177,10 +183,10 @@ pub fn delete_volume(
         other_pool.refresh(0)?;
         for other in other_pool.list_all_volumes(0)? {
             let root = xml::parse(&other.get_xml_desc(0)?)?;
-            if let Some(backing) = root.get_child("backingStore") {
-                if relative_backing(backing) || references(backing, &path) {
-                    return Err(Error::conflict("Levy on toisen levykuvan pohjalevy."));
-                }
+            if let Some(backing) = root.get_child("backingStore")
+                && (relative_backing(backing) || references(backing, &path))
+            {
+                return Err(Error::conflict("Levy on toisen levykuvan pohjalevy."));
             }
         }
     }
@@ -211,7 +217,8 @@ mod tests {
     fn nested_relative_backing_is_ambiguous() {
         let root = xml::parse("<backingStore><path>/images/base.qcow2</path><backingStore><path>older.qcow2</path></backingStore></backingStore>").unwrap();
         assert!(relative_backing(&root));
-        let absolute = xml::parse("<backingStore><path>/images/base.qcow2</path></backingStore>").unwrap();
+        let absolute =
+            xml::parse("<backingStore><path>/images/base.qcow2</path></backingStore>").unwrap();
         assert!(!relative_backing(&absolute));
     }
 }

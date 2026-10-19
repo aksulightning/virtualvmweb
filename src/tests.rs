@@ -117,7 +117,8 @@ fn xml_edits_preserve_unrelated_configuration() {
     assert!(out.contains("/new&amp;safe.iso"));
     assert_eq!(root.get_child("vcpu").unwrap().get_text().unwrap(), "4");
     assert!(
-        !root.get_child("vcpu")
+        !root
+            .get_child("vcpu")
             .unwrap()
             .attributes
             .contains_key("current")

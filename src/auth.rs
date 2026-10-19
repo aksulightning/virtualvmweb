@@ -53,14 +53,13 @@ impl Auth {
         };
         let mut sessions = self.sessions.lock().map_err(Error::internal)?;
         sessions.retain(|_, s| s.expires > Instant::now());
-        if sessions.len() >= 16 {
-            if let Some(id) = sessions
+        if sessions.len() >= 16
+            && let Some(id) = sessions
                 .values()
                 .min_by_key(|s| s.expires)
                 .map(|s| s.id.clone())
-            {
-                sessions.remove(&id);
-            }
+        {
+            sessions.remove(&id);
         }
         sessions.insert(session.id.clone(), session.clone());
         Ok(session)
@@ -157,8 +156,12 @@ mod tests {
     fn expiration_and_service_shutdown_revoke_access() {
         let auth = Auth::default();
         let expired = auth.create().unwrap();
-        auth.sessions.lock().unwrap().get_mut(&expired.id).unwrap().expires =
-            Instant::now() - Duration::from_secs(1);
+        auth.sessions
+            .lock()
+            .unwrap()
+            .get_mut(&expired.id)
+            .unwrap()
+            .expires = Instant::now() - Duration::from_secs(1);
         assert!(auth.find(&expired.id).is_none());
         let active = auth.create().unwrap();
         auth.revoke_all().unwrap();
