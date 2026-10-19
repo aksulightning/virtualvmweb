@@ -89,7 +89,8 @@ async fn security(State(app): State<App>, request: Request, next: Next) -> Respo
         HeaderValue::from_static("nosniff"),
     );
     headers.insert("x-frame-options", HeaderValue::from_static("DENY"));
-    headers.insert("referrer-policy", HeaderValue::from_static("no-referrer"));
+    // no-referrer makes native form POSTs send Origin: null, failing our origin check.
+    headers.insert("referrer-policy", HeaderValue::from_static("same-origin"));
     headers.insert("cache-control", HeaderValue::from_static("no-store"));
     if app.config.secure() {
         headers.insert(
