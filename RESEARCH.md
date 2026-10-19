@@ -13,6 +13,13 @@ Reviewed 2026-10-19 while implementing the first version. Official documentation
 
 ## License and design decisions
 
+### Debian compatibility follow-up — 2026-10-19
+
+- Reviewed Debian's [trixie libvirt-daemon-system package](https://packages.debian.org/trixie/libvirt-daemon-system): metapackage for the local QEMU deployment. Used the Debian package names in the separate installation guide.
+- Reviewed Debian's [trixie rustc package](https://packages.debian.org/trixie/rustc): base version 1.85.1 is below this project's Rust 1.91 requirement. Documented the need for a newer toolchain rather than lowering the requirement.
+- Reviewed the official [rustup installer page](https://rustup.rs/): linked it as an optional source for a newer native toolchain; no remote installer was executed.
+- Reviewed upstream [systemd.exec](https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html): dedicated User/Group, UMask and filesystem protection settings inform the new unit. No upstream code copied. These documentation checks do not establish Debian runtime compatibility; host acceptance remains unverified.
+
 The repository already contained the GPLv3 license text; retained unchanged and declared GPL-3.0-only in Cargo metadata. virt/libvirt use LGPL terms; noVNC identifies MPL-2.0 and includes additional third-party notices. The packaging script preserves noVNC's license files and bundled vendor notices. Dependency resolution is recorded in Cargo.lock. No virt-manager code or artwork was copied.
 
 The local `qemu:///system` scope, single administrator, conservative offline edits and separate disk deletion are project design decisions. Runtime libvirt, polkit and ISO filesystem permissions remain host configuration, requiring real-host verification. Alpine wiki KVM/OpenRC search results were consulted during planning, but a direct KVM page fetch returned 403; installation details were subsequently checked against the upstream Alpine package source rather than treating that failed fetch as reviewed documentation.
