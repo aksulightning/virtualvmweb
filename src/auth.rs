@@ -146,3 +146,22 @@ pub fn cookie(id: &str, secure: bool, clear: bool) -> String {
         if secure { "; Secure" } else { "" }
     )
 }
+
+/// Session lifetime and service shutdown regression tests.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Expired cookies are refused and service shutdown revokes all remaining sessions.
+    #[test]
+    fn expiration_and_service_shutdown_revoke_access() {
+        let auth = Auth::default();
+        let expired = auth.create().unwrap();
+        auth.sessions.lock().unwrap().get_mut(&expired.id).unwrap().expires =
+            Instant::now() - Duration::from_secs(1);
+        assert!(auth.find(&expired.id).is_none());
+        let active = auth.create().unwrap();
+        auth.revoke_all().unwrap();
+        assert!(auth.find(&active.id).is_none());
+    }
+}

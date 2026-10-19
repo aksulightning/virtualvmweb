@@ -2,7 +2,7 @@
 name: Alpine CI
 on:
   push:
-    branches: [main, 'feat/**']
+    branches: [main]
   pull_request:
   workflow_dispatch:
 permissions:
@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: |
             .cargo-ci/
@@ -32,7 +32,10 @@ jobs:
           docker run --rm --privileged -e VIRTUALVMWEB_DISPOSABLE_CI=yes -v "$PWD:/work" -w /work alpine:3.23 sh scripts/qemu-smoke.sh
       - name: Restore CI artifact ownership
         if: always()
-        run: if [ -d dist ]; then sudo chown -R "$(id -u):$(id -g)" dist; fi
+        run: |
+          for directory in dist .cargo-ci target; do
+            if [ -d "$directory" ]; then sudo chown -R "$(id -u):$(id -g)" "$directory"; fi
+          done
       - name: Browser layout and interaction checks
         if: ${{ !cancelled() }}
         run: |
@@ -49,4 +52,12 @@ jobs:
             dist/
             Cargo.lock
           if-no-files-found: warn
+      - name: Cache Alpine build outputs
+        if: ${{ always() && !cancelled() }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .cargo-ci/
+            target/
+          key: alpine3.23-rust191-${{ hashFiles('Cargo.lock') }}-${{ github.sha }}
 

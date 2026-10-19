@@ -114,7 +114,17 @@ novnc_dir = "{Path('vendor/novnc').resolve()}"
                 width, height = struct.unpack('!HH', header[:4])
                 read_bytes(struct.unpack('!I', header[20:24])[0])
                 assert width > 0 and height > 0
-                ws.close()
+                fetch('/logout', {'csrf': csrf})
+                ws.settimeout(20)
+                try:
+                    assert ws.recv() == '', 'Console remained open after logout'
+                except websocket.WebSocketConnectionClosedException:
+                    pass
+                finally:
+                    ws.close()
+                text, _ = fetch('/login', {'username': 'admin', 'password': password})
+                csrf = re.search(r'name="csrf" value="([a-f0-9]+)"', text).group(1)
+                delete['csrf'] = csrf
                 fetch(f'/machines/{guest_id}/action', {'csrf': csrf, 'operation': 'pause'})
                 fetch(f'/machines/{guest_id}/action', {'csrf': csrf, 'operation': 'resume'})
                 fetch(f'/machines/{guest_id}/action', {'csrf': csrf, 'operation': 'force-off', 'confirmation': 'vvw-ci-guest'})
@@ -122,7 +132,7 @@ novnc_dir = "{Path('vendor/novnc').resolve()}"
                 assert Path(f'/var/lib/libvirt/images/vvw-ci/{volume}').is_file()
                 fetch('/volumes/delete', delete)
                 assert not Path(f'/var/lib/libvirt/images/vvw-ci/{volume}').exists()
-                report = {'acceleration': acceleration, 'wizard_creation_and_offline_edit': acceleration == 'kvm', 'real_qemu_lifecycle': True, 'vnc_handshake': True, 'screen': [width, height], 'attached_disk_refused': True, 'separate_disk_deletion': True, 'guest_os_installation': 'not tested'}
+                report = {'acceleration': acceleration, 'wizard_creation_and_offline_edit': acceleration == 'kvm', 'real_qemu_lifecycle': True, 'vnc_handshake': True, 'console_logout_revocation': True, 'screen': [width, height], 'attached_disk_refused': True, 'separate_disk_deletion': True, 'guest_os_installation': 'not tested'}
                 Path('dist/qemu-measurements.json').write_text(json.dumps(report, indent=2) + '\n')
                 print(json.dumps(report))
             finally:
