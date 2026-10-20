@@ -10,6 +10,8 @@ cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked
 node --check assets/app.js
 node --check assets/console.js
+node --check assets/audio.js
+node scripts/audio-check.mjs
 sh scripts/fetch-novnc.sh
 cargo build --locked --release
 sh scripts/package.sh

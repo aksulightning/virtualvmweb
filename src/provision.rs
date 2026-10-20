@@ -40,6 +40,8 @@ pub struct Edit {
     pub iso: String,
     #[serde(default)]
     pub change_iso: bool,
+    #[serde(default)]
+    pub enable_audio: bool,
 }
 
 /// Checks conservative bounds before building XML or allocating storage.
@@ -123,7 +125,8 @@ pub fn domain_xml(input: &Create, id: &str, disk: &str, iso: &str) -> String {
 <devices><disk type='file' device='disk'><driver name='qemu' type='qcow2'/><source file='{}'/><target dev='vda' bus='virtio'/></disk>
 <disk type='file' device='cdrom'><driver name='qemu' type='raw'/><source file='{}'/><target dev='sda' bus='sata'/><readonly/></disk>
 <interface type='network'><source network='{}'/><model type='virtio'/></interface>
-<graphics type='vnc'><listen type='none'/></graphics><video><model type='vga'/></video>
+<sound model='ich9'><codec type='output'/><audio id='1'/></sound><audio id='1' type='none'/>
+<graphics type='vnc'><listen type='none'/><audio id='1'/></graphics><video><model type='vga'/></video>
 <input type='tablet' bus='usb'/><controller type='usb' model='qemu-xhci'/><memballoon model='virtio'/>
 <channel type='unix'><target type='virtio' name='org.qemu.guest_agent.0'/></channel>
 </devices></domain>"#,
@@ -217,6 +220,9 @@ pub fn edit(conn: &Connect, id: &str, input: &Edit, iso_dir: &Path) -> Result<()
             })
             .transpose()?;
         xml::edit_cdrom(&mut root, path)?;
+    }
+    if input.enable_audio {
+        crate::audio::enable(&mut root)?;
     }
     Domain::define_xml(conn, &xml::serialize(&root)?)?;
     tracing::info!(guest = id, "administrator updated offline configuration");

@@ -55,6 +55,8 @@ pub fn router(app: App) -> Router {
         .route("/assets/style.css", get(style))
         .route("/assets/app.js", get(script))
         .route("/assets/console.js", get(console_script))
+        .route("/assets/audio.js", get(audio_script))
+        .route("/assets/audio-rfb.js", get(audio_protocol))
         .layer(DefaultBodyLimit::max(16 * 1024))
         .layer(middleware::from_fn_with_state(app.clone(), security))
         .with_state(app)
@@ -222,4 +224,14 @@ async fn console_script() -> impl IntoResponse {
         [("content-type", "text/javascript; charset=utf-8")],
         include_str!("../../assets/console.js"),
     )
+}
+
+/// Serves playback controls without a frontend build dependency.
+async fn audio_script() -> impl IntoResponse {
+    ([("content-type", "text/javascript; charset=utf-8")], include_str!("../../assets/audio.js"))
+}
+
+/// Serves the bounded QEMU audio protocol decoder.
+async fn audio_protocol() -> impl IntoResponse {
+    ([("content-type", "text/javascript; charset=utf-8")], include_str!("../../assets/audio-rfb.js"))
 }

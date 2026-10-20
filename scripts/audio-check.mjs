@@ -1,0 +1,24 @@
+// Exercise the production decoder with fragmented RFB messages and stereo PCM boundaries.
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+const source = await readFile('assets/audio-rfb.js', 'utf8');
+const { AudioRfb, decodePcm } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+const sent = [];
+const samples = [];
+let ready = 0;
+const client = new AudioRfb(bytes => sent.push([...bytes]), bytes => samples.push(decodePcm(bytes)), () => ready++);
+const init = Buffer.alloc(24);
+const ack = Buffer.alloc(16);
+ack.writeUInt16BE(1, 2);
+ack.writeInt32BE(-259, 12);
+const pcm = Buffer.from([255, 1, 0, 2, 0, 0, 0, 8, 0, 128, 255, 127, 0, 0, 0, 64]);
+const wire = Buffer.concat([Buffer.from('RFB 003.008\n'), Buffer.from([1, 1, 0, 0, 0, 0]), init, ack, Buffer.from([255, 1, 0, 1]), pcm]);
+for (const byte of wire) client.feed(new Uint8Array([byte]));
+assert.equal(ready, 1);
+assert.deepEqual(sent.slice(-2), [[255, 1, 0, 2, 3, 2, 0, 0, 172, 68], [255, 1, 0, 0]]);
+assert.deepEqual([...samples[0][0]], [-1, 0]);
+assert.deepEqual([...samples[0][1]], [32767 / 32768, 0.5]);
+assert.throws(() => client.feed(new Uint8Array([255, 1, 0, 2, 255, 255, 255, 255])));
+assert.throws(() => decodePcm(new Uint8Array(3)));
+assert.throws(() => new AudioRfb(() => {}, () => {}, () => {}).feed(new Uint8Array(1048577)));
+console.log('Fragmented QEMU negotiation, stereo PCM decoding and malformed-length checks passed.');

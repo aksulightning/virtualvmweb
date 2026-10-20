@@ -82,6 +82,7 @@ novnc_dir = "{Path('vendor/novnc').resolve()}"
                     subprocess.run(VIRSH + ['define', str(guest_xml)], check=True)
                 delete = {'csrf': csrf, 'pool': 'vvw-ci', 'name': volume, 'confirmation': volume}
                 fetch('/volumes/delete', delete, expected=409)
+                fetch(f'/machines/{guest_id}/edit', {'csrf': csrf, 'cpus': 1, 'memory_mib': 256, 'iso': '', 'enable_audio': 'true'})
                 fetch(f'/machines/{guest_id}/action', {'csrf': csrf, 'operation': 'start'})
                 fetch(f'/machines/{guest_id}/edit', {'csrf': csrf, 'cpus': 1, 'memory_mib': 256, 'iso': ''}, expected=409)
                 fetch(f'/machines/{guest_id}/console')
@@ -116,10 +117,19 @@ novnc_dir = "{Path('vendor/novnc').resolve()}"
                 width, height = struct.unpack('!HH', header[:4])
                 read_bytes(struct.unpack('!I', header[20:24])[0])
                 assert width > 0 and height > 0
+                ws.send_binary(struct.pack('!BBHi', 2, 0, 1, -259))
+                audio_ack = read_bytes(16)
+                assert audio_ack[:4] == b'\0\0\0\x01'
+                assert struct.unpack('!i', audio_ack[12:])[0] == -259
+                ws.send_binary(bytes([255, 1, 0, 2, 3, 2, 0, 0, 172, 68]))
+                ws.send_binary(bytes([255, 1, 0, 0]))
+                print('Real QEMU accepted shared VNC audio negotiation (stereo S16 44100 Hz).')
                 fetch('/logout', {'csrf': csrf})
                 ws.settimeout(20)
                 try:
-                    assert ws.recv() == '', 'Console remained open after logout'
+                    deadline = time.monotonic() + 20
+                    while ws.recv() != '':
+                        assert time.monotonic() < deadline, 'Console remained open after logout'
                 except websocket.WebSocketConnectionClosedException:
                     pass
                 finally:

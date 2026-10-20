@@ -1,4 +1,5 @@
 // Application-owned noVNC integration; the guest UUID selects a server-authorized socket.
+import { initAudio } from './audio.js';
 import RFB from '/novnc/core/rfb.js';
 
 const screen = document.querySelector('#console-screen');
@@ -15,3 +16,7 @@ document.querySelector('#send-cad').addEventListener('click', () => rfb.sendCtrl
 document.querySelector('#fullscreen').addEventListener('click', () => screen.requestFullscreen().catch(() => { status.textContent = 'Selain ei sallinut koko näytön tilaa.'; }));
 window.addEventListener('pagehide', () => rfb.disconnect());
 
+
+// Audio shares the authenticated bridge but has its own shared RFB session.
+const stopAudio = initAudio(`${protocol}//${location.host}/machines/${screen.dataset.domain}/ws`);
+rfb.addEventListener('disconnect', () => stopAudio());

@@ -1,5 +1,7 @@
 //! Entrypoint for the Alpine-only libvirt web service and password-hash utility.
 
+/// Guest playback device configuration.
+mod audio;
 /// Administrator sessions and credential helpers.
 mod auth;
 /// Blocking libvirt operations.

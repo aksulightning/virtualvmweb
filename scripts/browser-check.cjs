@@ -24,7 +24,7 @@ async function serve(request, response) {
   let filename;
   if (routes.has(pathname)) filename = path.join('dist/previews', routes.get(pathname));
   else if (/^\/machines\/[a-f0-9-]{36}$/.test(pathname)) filename = 'dist/previews/guest.html';
-  else if (['/assets/app.js', '/assets/style.css'].includes(pathname)) filename = pathname.slice(1);
+  else if (['/assets/app.js', '/assets/style.css', '/assets/audio.js', '/assets/audio-rfb.js'].includes(pathname)) filename = pathname.slice(1);
   else { response.writeHead(404); response.end(); return; }
   try {
     const data = await fs.readFile(filename);
@@ -80,6 +80,24 @@ async function run() {
       assert.deepEqual(errors, [], 'Unexpected browser JavaScript errors');
       await page.close();
     }
+    const audioPage = await browser.newPage();
+    await audioPage.goto(origin + '/login');
+    const rendered = await audioPage.evaluate(async () => {
+      const { decodePcm } = await import('/assets/audio-rfb.js');
+      const channels = decodePcm(new Uint8Array([0, 64, 0, 192, 0, 32, 0, 224]));
+      const context = new OfflineAudioContext(2, 2, 44100);
+      const buffer = context.createBuffer(2, 2, 44100);
+      channels.forEach((data, index) => buffer.copyToChannel(data, index));
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(context.destination);
+      source.start();
+      const output = await context.startRendering();
+      return [[...output.getChannelData(0)], [...output.getChannelData(1)]];
+    });
+    assert.deepEqual(rendered, [[0.5, 0.25], [-0.5, -0.25]], 'PCM reaches the browser audio output graph');
+    await audioPage.close();
+    console.log('Browser stereo PCM audio rendering passed.');
     console.log('Desktop/mobile rendering, logout reachability and guest filtering passed.');
     console.log('Native form Origin regression passed: old policy null, production policy same-origin.');
   } finally {
