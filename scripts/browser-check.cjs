@@ -124,6 +124,8 @@ async function run() {
         step++;
       });
     });
+    // Install WebSocket interception in the new document before exercising playback.
+    await audioPage.goto(origin + '/login');
     await audioPage.evaluate(async () => {
       document.body.innerHTML = '<button id="audio-toggle">Ääni päälle</button><input id="audio-volume" type="range" min="0" max="1" step="0.01" value="0.8"><span id="audio-status"></span>';
       const { initAudio } = await import('/assets/audio.js');
