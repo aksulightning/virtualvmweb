@@ -228,10 +228,16 @@ async fn console_script() -> impl IntoResponse {
 
 /// Serves playback controls without a frontend build dependency.
 async fn audio_script() -> impl IntoResponse {
-    ([("content-type", "text/javascript; charset=utf-8")], include_str!("../../assets/audio.js"))
+    (
+        [("content-type", "text/javascript; charset=utf-8")],
+        include_str!("../../assets/audio.js"),
+    )
 }
 
 /// Serves the bounded QEMU audio protocol decoder.
 async fn audio_protocol() -> impl IntoResponse {
-    ([("content-type", "text/javascript; charset=utf-8")], include_str!("../../assets/audio-rfb.js"))
+    (
+        [("content-type", "text/javascript; charset=utf-8")],
+        include_str!("../../assets/audio-rfb.js"),
+    )
 }

@@ -96,6 +96,43 @@ async function run() {
       return [[...output.getChannelData(0)], [...output.getChannelData(1)]];
     });
     assert.deepEqual(rendered, [[0.5, 0.25], [-0.5, -0.25]], 'PCM reaches the browser audio output graph');
+    let audioClosed = false;
+    await audioPage.routeWebSocket('**/audio-test', socket => {
+      let step = 0;
+      socket.send(Buffer.from('RFB 003.008\n'));
+      socket.onClose(() => { audioClosed = true; });
+      socket.onMessage(message => {
+        const bytes = Buffer.from(message);
+        if (step === 0) socket.send(Buffer.from([1, 1]));
+        if (step === 1) socket.send(Buffer.alloc(4));
+        if (step === 2) socket.send(Buffer.alloc(24));
+        if (step === 3) {
+          const ack = Buffer.alloc(16);
+          ack.writeUInt16BE(1, 2);
+          ack.writeInt32BE(-259, 12);
+          socket.send(ack);
+        }
+        if (step === 5) {
+          assert.deepEqual([...bytes], [255, 1, 0, 0]);
+          socket.send(Buffer.from([255, 1, 0, 2, 0, 0, 0, 8, 0, 64, 0, 192, 0, 32, 0, 224]));
+        }
+        step++;
+      });
+    });
+    await audioPage.evaluate(async () => {
+      document.body.innerHTML = '<button id="audio-toggle">Ääni päälle</button><input id="audio-volume" type="range" min="0" max="1" step="0.01" value="0.8"><span id="audio-status"></span>';
+      const { initAudio } = await import('/assets/audio.js');
+      initAudio(`ws://${location.host}/audio-test`);
+    });
+    await audioPage.locator('#audio-toggle').click();
+    await audioPage.locator('#audio-status').filter({ hasText: 'Ääni käytössä' }).waitFor();
+    assert.equal(await audioPage.locator('#audio-toggle').getAttribute('aria-pressed'), 'true');
+    await audioPage.locator('#audio-volume').evaluate(input => { input.value = '0.2'; input.dispatchEvent(new Event('input')); });
+    await audioPage.locator('#audio-toggle').click();
+    assert.equal(await audioPage.locator('#audio-status').textContent(), 'Ääni pois päältä.');
+    assert.equal(await audioPage.locator('#audio-toggle').getAttribute('aria-pressed'), 'false');
+    await audioPage.waitForTimeout(100);
+    assert.equal(audioClosed, true, 'Mute closes the audio transport');
     await audioPage.close();
     console.log('Browser stereo PCM audio rendering passed.');
     console.log('Desktop/mobile rendering, logout reachability and guest filtering passed.');
