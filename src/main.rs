@@ -10,6 +10,8 @@ mod config;
 mod console;
 /// Safe HTTP errors.
 mod error;
+/// Guest firmware selection and host support checks.
+mod firmware;
 /// Guest provisioning and offline edits.
 mod provision;
 /// HTTP routes and request security boundaries.

@@ -11,6 +11,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 from pathlib import Path
 import websocket
 
@@ -61,6 +62,7 @@ novnc_dir = "{Path('vendor/novnc').resolve()}"
                 csrf = re.search(r'name="csrf" value="([a-f0-9]+)"', text).group(1)
                 fields = {'csrf': csrf, 'name': 'vvw-ci-guest', 'cpus': 1, 'memory_mib': 256, 'disk_gib': 1, 'pool': 'vvw-ci', 'network': 'vvw-ci', 'iso': 'fixture.iso'}
                 fetch('/machines/preview', fields)
+                fetch('/machines/preview', dict(fields, firmware='invalid'), expected=422)
                 assert not any(Path('/var/lib/libvirt/images/vvw-ci').iterdir())
                 capabilities = subprocess.check_output(VIRSH + ['capabilities'], text=True)
                 acceleration = 'kvm' if "type='kvm'" in capabilities or 'type="kvm"' in capabilities else 'tcg'
@@ -126,13 +128,39 @@ novnc_dir = "{Path('vendor/novnc').resolve()}"
                 csrf = re.search(r'name="csrf" value="([a-f0-9]+)"', text).group(1)
                 delete['csrf'] = csrf
                 fetch(f'/machines/{guest_id}/action', {'csrf': csrf, 'operation': 'pause'})
+                fetch(f'/machines/{guest_id}/action', {'csrf': csrf, 'operation': 'force-reset', 'confirmation': 'vvw-ci-guest'}, expected=409)
                 fetch(f'/machines/{guest_id}/action', {'csrf': csrf, 'operation': 'resume'})
+                for operation in ['force-reset', 'force-off']:
+                    fetch(f'/machines/{guest_id}/action', {'csrf': csrf, 'operation': operation, 'confirmation': 'wrong'}, expected=409)
+                fetch(f'/machines/{guest_id}/action', {'csrf': csrf, 'operation': 'force-reset', 'confirmation': 'vvw-ci-guest'})
+                assert subprocess.check_output(VIRSH + ['domstate', guest_id], text=True).strip() == 'running'
                 fetch(f'/machines/{guest_id}/action', {'csrf': csrf, 'operation': 'force-off', 'confirmation': 'vvw-ci-guest'})
+                fetch(f'/machines/{guest_id}/action', {'csrf': csrf, 'operation': 'force-reset', 'confirmation': 'vvw-ci-guest'}, expected=409)
                 fetch(f'/machines/{guest_id}/action', {'csrf': csrf, 'operation': 'undefine', 'confirmation': 'vvw-ci-guest'})
                 assert Path(f'/var/lib/libvirt/images/vvw-ci/{volume}').is_file()
                 fetch('/volumes/delete', delete)
                 assert not Path(f'/var/lib/libvirt/images/vvw-ci/{volume}').exists()
+                if acceleration == 'kvm':
+                    uefi_fields = dict(fields, csrf=csrf, name='vvw-ci-uefi', firmware='uefi', memory_mib=512, confirm='yes')
+                    preview, _ = fetch('/machines/preview', uefi_fields)
+                    assert 'value="uefi"' in preview and '>UEFI<' in preview
+                    _, url = fetch('/machines', uefi_fields)
+                    uefi_id = url.split('/machines/')[1].split('?')[0]
+                    fetch(f'/machines/{uefi_id}/action', {'csrf': csrf, 'operation': 'start'})
+                    domain = ET.fromstring(subprocess.check_output(VIRSH + ['dumpxml', uefi_id], text=True))
+                    assert domain.find('os').get('firmware') == 'efi'
+                    assert domain.find('os/loader').get('type') == 'pflash'
+                    nvram = Path(domain.find('os/nvram').text)
+                    assert nvram.is_file()
+                    fetch(f'/machines/{uefi_id}/action', {'csrf': csrf, 'operation': 'force-reset', 'confirmation': 'vvw-ci-uefi'})
+                    fetch(f'/machines/{uefi_id}/action', {'csrf': csrf, 'operation': 'force-off', 'confirmation': 'vvw-ci-uefi'})
+                    fetch(f'/machines/{uefi_id}/action', {'csrf': csrf, 'operation': 'undefine', 'confirmation': 'vvw-ci-uefi'})
+                    assert nvram.is_file(), 'Undefine removed firmware state'
+                    uefi_volume = f'virtualvmweb-{uefi_id}.qcow2'
+                    fetch('/volumes/delete', {'csrf': csrf, 'pool': 'vvw-ci', 'name': uefi_volume, 'confirmation': uefi_volume})
+                    nvram.unlink()  # Explicit cleanup only inside this disposable CI environment.
                 report = {'acceleration': acceleration, 'wizard_creation_and_offline_edit': acceleration == 'kvm', 'real_qemu_lifecycle': True, 'vnc_handshake': True, 'console_logout_revocation': True, 'screen': [width, height], 'attached_disk_refused': True, 'separate_disk_deletion': True, 'guest_os_installation': 'not tested'}
+                report.update(force_reset=True, force_action_refusals=True, uefi_create_start_reset_nvram_preserved=acceleration == 'kvm')
                 Path('dist/qemu-measurements.json').write_text(json.dumps(report, indent=2) + '\n')
                 print(json.dumps(report))
             finally:

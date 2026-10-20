@@ -49,3 +49,5 @@ journalctl -u virtualvmweb.service
 ```
 
 Logs go to the journal. The shared HTTPS instructions and [real-host acceptance checklist](TESTING.md#real-host-acceptance-alpine--kvm) apply with Debian/systemd substituted for Alpine/OpenRC. Restart the service after changing configuration; sessions are invalidated and guests continue running.
+
+For UEFI creation, install `ovmf` with `apt-get install ovmf`. Reload the creation page afterward; if UEFI remains unavailable, check `virsh -c qemu:///system domcapabilities --arch x86_64 --machine q35 --virttype kvm` for the OS firmware enum's `efi` value. The application uses libvirt firmware autoselection, without hard-coded distribution paths or Secure Boot. Guest definition removal preserves NVRAM as well as disks.

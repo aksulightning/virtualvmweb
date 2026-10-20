@@ -64,3 +64,9 @@ location / {
 
 Restrict the TLS endpoint to your management network/VPN. There is no subpath deployment or forwarded-header authentication. For local evaluation use the exact default `http://127.0.0.1:8080` origin, including through an SSH local port forward.
 
+
+## UEFI and forced power actions
+
+Install `ovmf` (`apk add ovmf`) to enable UEFI for new x86_64 Q35 guests. The creation page enables UEFI only when libvirt advertises EFI autoselection for Q35/KVM; preview and final creation recheck this before allocating storage. Libvirt chooses firmware paths and creates per-guest NVRAM. Secure Boot is disabled. Existing guests are not converted between BIOS and UEFI.
+
+Forced shutdown and forced restart require typing the guest name. Forced restart performs a hardware reset on a running guest; resume a paused guest first. Both can lose unsaved data. Removing a guest definition preserves its disks and UEFI NVRAM; leftover NVRAM must be retained for recovery or deliberately cleaned up by the host administrator.

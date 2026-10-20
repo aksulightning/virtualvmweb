@@ -155,14 +155,25 @@ pub fn action(conn: &Connect, id: &str, action: &str, confirmation: &str) -> Res
         "force-off" if info.active && confirmation == info.name => {
             dom.destroy()?;
         }
+        "force-reset" if info.state == 1 && confirmation == info.name => {
+            dom.reset()?;
+        }
         "undefine" if !info.active && info.persistent && confirmation == info.name => {
             if dom.has_managed_save(0)? || !dom.list_all_snapshots(0)?.is_empty() {
                 return Err(Error::conflict(
                     "Poista tallennetut tilat ja snapshotit ensin libvirt-työkaluilla.",
                 ));
             }
-            // No undefine flags: libvirt must refuse guests with unhandled NVRAM/checkpoints.
-            dom.undefine()?;
+            let root = crate::xml::parse(&dom.get_xml_desc(virt::sys::VIR_DOMAIN_XML_INACTIVE)?)?;
+            if root
+                .get_child("os")
+                .is_some_and(|os| os.get_child("nvram").is_some())
+            {
+                // Preserve firmware variables just like guest disks; never remove them implicitly.
+                dom.undefine_flags(virt::sys::VIR_DOMAIN_UNDEFINE_KEEP_NVRAM)?;
+            } else {
+                dom.undefine()?;
+            }
         }
         _ => {
             return Err(Error::conflict(

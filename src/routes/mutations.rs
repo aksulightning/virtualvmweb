@@ -5,6 +5,7 @@ use crate::{
     auth::Session,
     backend,
     error::{Error, Result},
+    firmware,
     provision::{self, Create, Edit},
     storage, views,
 };
@@ -49,13 +50,14 @@ pub async fn new(
     Extension(session): Extension<Session>,
 ) -> Result<Html<String>> {
     let root = app.config.iso_dir.clone();
-    let (pools, networks, isos) = app
+    let (pools, networks, isos, uefi) = app
         .backend
         .run(move |conn| {
             Ok((
                 storage::pools(conn)?,
                 storage::networks(conn)?,
                 provision::isos(&root)?,
+                firmware::available(conn),
             ))
         })
         .await?;
@@ -63,7 +65,7 @@ pub async fn new(
         "Uusi virtuaalikone",
         "/machines",
         &session,
-        &views::forms::create(&session, &pools, &networks, &isos),
+        &views::forms::create(&session, &pools, &networks, &isos, uefi),
     )))
 }
 
@@ -76,9 +78,12 @@ pub async fn preview(
     session.check_csrf(&input.csrf)?;
     let checked = input.clone();
     let root = app.config.iso_dir.clone();
-    tokio::task::spawn_blocking(move || provision::validate(&checked, &root))
-        .await
-        .map_err(Error::internal)??;
+    app.backend
+        .run(move |conn| {
+            provision::validate(&checked, &root)?;
+            firmware::validate(conn, checked.firmware)
+        })
+        .await?;
     Ok(Html(views::page(
         "Tarkista asetukset",
         "/machines",

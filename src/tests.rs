@@ -130,7 +130,7 @@ fn xml_edits_preserve_unrelated_configuration() {
 /// Validates a generated guest profile and confirms VNC has no public listener.
 #[test]
 fn generated_domain_has_private_graphics() {
-    let input = provision::Create {
+    let mut input = provision::Create {
         csrf: String::new(),
         name: "test".into(),
         cpus: 2,
@@ -139,6 +139,7 @@ fn generated_domain_has_private_graphics() {
         pool: "default".into(),
         network: "default".into(),
         iso: "test.iso".into(),
+        firmware: crate::firmware::Firmware::Bios,
         confirm: "yes".into(),
     };
     let root = xml::parse(&provision::domain_xml(
@@ -149,6 +150,16 @@ fn generated_domain_has_private_graphics() {
     ))
     .unwrap();
     assert_eq!(xml::vnc_index(&root), Some(0));
+    assert_eq!(xml::attr(root.get_child("os").unwrap(), "firmware"), "");
+    input.firmware = crate::firmware::Firmware::Uefi;
+    let uefi = xml::parse(&provision::domain_xml(&input, "test-id", "/disk", "/iso")).unwrap();
+    let os = uefi.get_child("os").unwrap();
+    assert_eq!(xml::attr(os, "firmware"), "efi");
+    assert!(os.get_child("loader").is_none());
+    assert!(os.get_child("nvram").is_none());
+    let preview = crate::views::forms::preview(&input);
+    assert!(preview.contains("value=\"uefi\""));
+    assert!(preview.contains(">UEFI<"));
     let graphics = root
         .get_child("devices")
         .unwrap()
@@ -174,7 +185,9 @@ async fn libvirt_lifecycle_and_state_checks() {
             assert_eq!(backend::machine(&backend::domain(conn, &vm.id)?)?.state, 3);
             backend::action(conn, &vm.id, "resume", "")?;
             assert!(backend::action(conn, &vm.id, "force-off", "wrong name").is_err());
+            assert!(backend::action(conn, &vm.id, "force-reset", "wrong name").is_err());
             backend::action(conn, &vm.id, "shutdown", "")?;
+            assert!(backend::action(conn, &vm.id, "force-reset", &vm.name).is_err());
             backend::action(conn, &vm.id, "start", "")?;
             assert!(backend::action(conn, &vm.id, "undefine", &vm.name).is_err());
             Ok(())
