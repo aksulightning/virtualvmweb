@@ -50,6 +50,9 @@ novnc_dir = "{root / 'vendor/novnc'}"
                 previews.mkdir(exist_ok=True)
                 with client.open(origin + '/login') as response:
                     (previews / 'login.html').write_text(response.read().decode())
+                    browser_headers = {name: response.headers[name] for name in
+                                       ['Referrer-Policy', 'Content-Security-Policy', 'X-Content-Type-Options']}
+                    (previews / 'headers.json').write_text(json.dumps(browser_headers))
                 body = urllib.parse.urlencode({'username': 'admin', 'password': password}).encode()
                 req = urllib.request.Request(origin + '/login', data=body, headers={'Origin': origin})
                 with client.open(req) as response:

@@ -13,6 +13,10 @@ Reviewed 2026-10-19 while implementing the first version. Official documentation
 
 ## License and design decisions
 
+### Native login form Origin regression — 2026-10-19
+
+Reviewed the WHATWG [Fetch standard, appending Origin](https://fetch.spec.whatwg.org/#append-a-request-origin-header). For non-CORS POST requests, `no-referrer` serializes the Origin as `null`. Our response policy therefore conflicted with our strict Origin check on native HTML form submissions. Changed the policy to `same-origin`, retained strict rejection of missing/null/foreign origins, and added a Chromium form-submission regression using response headers captured from the actual release server. The previous HTTP smoke supplied Origin manually and the browser preview omitted production headers, so neither exposed this interaction.
+
 ### Debian compatibility follow-up — 2026-10-19
 
 - Reviewed Debian's [trixie libvirt-daemon-system package](https://packages.debian.org/trixie/libvirt-daemon-system): metapackage for the local QEMU deployment. Used the Debian package names in the separate installation guide.

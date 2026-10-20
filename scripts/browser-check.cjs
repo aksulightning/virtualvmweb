@@ -4,6 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.VIRTUALVMWEB_PLAYWRIGHT);
+let browserHeaders;
 
 const routes = new Map([
   ['/', 'dashboard.html'], ['/login', 'login.html'], ['/machines', 'machines.html'],
@@ -14,6 +15,12 @@ const routes = new Map([
 /** Serves only known redacted previews and application-owned static assets. */
 async function serve(request, response) {
   const pathname = new URL(request.url, 'http://localhost').pathname;
+  if (request.method === 'POST' && pathname === '/login') {
+    request.resume();
+    response.setHeader('Content-Type', 'text/plain');
+    response.end(request.headers.origin || 'missing');
+    return;
+  }
   let filename;
   if (routes.has(pathname)) filename = path.join('dist/previews', routes.get(pathname));
   else if (/^\/machines\/[a-f0-9-]{36}$/.test(pathname)) filename = 'dist/previews/guest.html';
@@ -21,6 +28,11 @@ async function serve(request, response) {
   else { response.writeHead(404); response.end(); return; }
   try {
     const data = await fs.readFile(filename);
+    if (filename.endsWith('.html')) {
+      for (const [name, value] of Object.entries(browserHeaders)) response.setHeader(name, value);
+      // Negative control reproduces the previous production policy only in this test server.
+      if (request.url.includes('?legacy')) response.setHeader('Referrer-Policy', 'no-referrer');
+    }
     response.setHeader('Content-Type', filename.endsWith('.css') ? 'text/css' : filename.endsWith('.js') ? 'text/javascript' : 'text/html; charset=utf-8');
     response.end(data);
   } catch { response.writeHead(500); response.end(); }
@@ -29,6 +41,7 @@ async function serve(request, response) {
 /** Checks desktop/mobile layout, navigation reachability and local search behavior. */
 async function run() {
   await fs.mkdir('dist/screenshots', { recursive: true });
+  browserHeaders = JSON.parse(await fs.readFile('dist/previews/headers.json', 'utf8'));
   const server = http.createServer(serve);
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
@@ -51,10 +64,19 @@ async function run() {
       await page.locator('.empty-filter').waitFor({ state: 'visible' });
       await page.locator('#machine-search').fill('');
       assert.equal(await page.locator('tr[data-name]:visible').count(), 1);
+      for (const [suffix, expected] of [['?legacy', 'null'], ['', origin]]) {
+        await page.goto(origin + '/login' + suffix);
+        await page.locator('[name="username"]').fill('admin');
+        await page.locator('[name="password"]').fill('browser-origin-test');
+        const submitted = page.waitForResponse(response => response.request().method() === 'POST');
+        await page.getByRole('button', { name: 'Kirjaudu sisään' }).click();
+        assert.equal(await (await submitted).text(), expected, `${name}: native login form Origin`);
+      }
       assert.deepEqual(errors, [], 'Unexpected browser JavaScript errors');
       await page.close();
     }
     console.log('Desktop/mobile rendering, logout reachability and guest filtering passed.');
+    console.log('Native form Origin regression passed: old policy null, production policy same-origin.');
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));
