@@ -38,3 +38,20 @@ Use this application for a trusted host administrator: libvirt management rights
 
 The repository's existing GPLv3 license is retained. noVNC and bundled dependencies keep their original notices; see [research and third-party records](RESEARCH.md).
 
+
+## Ääni selaimessa
+
+Konsolin **Ääni päälle** käynnistää virtuaalikoneen stereoäänen; **Mykistä**
+sulkee ääniyhteyden. Äänenvoimakkuutta voi säätää konsolista. Mikrofoni ei ole
+käytössä. Uusille koneille lisätään ulostuloon rajattu Intel HDA -äänilaite.
+Vanha kone: sammuta hallitusti, avaa **Muokkaa asetuksia**, valitse
+**Lisää selaimen äänentoisto**, tallenna ja käynnistä. Vieraan käyttöjärjestelmässä
+tarvitaan HDA-ajuri ja oikea äänilähtö. Olemassa olevaa omaa ääniasetusta ei korvata.
+
+Ääni käyttää QEMU:n VNC-äänilaajennusta ja Web Audio API:a. Erillisiä portteja,
+hostin äänipalvelua tai mikrofonilupaa ei tarvita. Käytä HTTPS:ää tai localhostia.
+Näyttö ja ääni käyttävät kumpikin yhden neljästä sallitusta konsoliyhteydestä.
+PCM-siirto (44,1 kHz / 16 bit / stereo) käyttää noin 176 kB/s äänen aikana.
+Selain pysäyttää äänen sivulta poistuttaessa; kirjautumisen päättyminen katkaisee
+yhteyden viimeistään 15 sekunnissa. Tämä on perusäänentoisto, ei taattu
+pienen viiveen tai kuvaan tahdistetun multimedian ratkaisu.

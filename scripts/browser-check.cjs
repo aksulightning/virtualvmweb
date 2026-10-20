@@ -24,7 +24,7 @@ async function serve(request, response) {
   let filename;
   if (routes.has(pathname)) filename = path.join('dist/previews', routes.get(pathname));
   else if (/^\/machines\/[a-f0-9-]{36}$/.test(pathname)) filename = 'dist/previews/guest.html';
-  else if (['/assets/app.js', '/assets/style.css'].includes(pathname)) filename = pathname.slice(1);
+  else if (['/assets/app.js', '/assets/style.css', '/assets/audio.js', '/assets/audio-rfb.js'].includes(pathname)) filename = pathname.slice(1);
   else { response.writeHead(404); response.end(); return; }
   try {
     const data = await fs.readFile(filename);
@@ -80,6 +80,73 @@ async function run() {
       assert.deepEqual(errors, [], 'Unexpected browser JavaScript errors');
       await page.close();
     }
+    const audioPage = await browser.newPage();
+    audioPage.on('console', message => console.log('Audio browser:', message.text()));
+    audioPage.on('pageerror', error => console.error('Audio page error:', error.message));
+    await audioPage.goto(origin + '/login');
+    const rendered = await audioPage.evaluate(async () => {
+      const { decodePcm } = await import('/assets/audio-rfb.js');
+      const channels = decodePcm(new Uint8Array([0, 64, 0, 192, 0, 32, 0, 224]));
+      const context = new OfflineAudioContext(2, 2, 44100);
+      const buffer = context.createBuffer(2, 2, 44100);
+      channels.forEach((data, index) => buffer.copyToChannel(data, index));
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(context.destination);
+      source.start();
+      const output = await context.startRendering();
+      return [[...output.getChannelData(0)], [...output.getChannelData(1)]];
+    });
+    assert.deepEqual(rendered, [[0.5, 0.25], [-0.5, -0.25]], 'PCM reaches the browser audio output graph');
+    let audioClosed = false;
+    const audioSteps = [];
+    await audioPage.routeWebSocket('**/audio-test', socket => {
+      let step = 0;
+      audioSteps.push('connected');
+      socket.send(Buffer.from('RFB 003.008\n'));
+      socket.onClose(() => { audioClosed = true; });
+      socket.onMessage(message => {
+        const bytes = Buffer.from(message);
+        audioSteps.push([step, [...bytes]]);
+        if (step === 0) socket.send(Buffer.from([1, 1]));
+        if (step === 1) socket.send(Buffer.alloc(4));
+        if (step === 2) socket.send(Buffer.alloc(24));
+        if (step === 3) {
+          const ack = Buffer.alloc(16);
+          ack.writeUInt16BE(1, 2);
+          ack.writeInt32BE(-259, 12);
+          socket.send(ack);
+        }
+        if (step === 5) {
+          assert.deepEqual([...bytes], [255, 1, 0, 0]);
+          socket.send(Buffer.from([255, 1, 0, 2, 0, 0, 0, 8, 0, 64, 0, 192, 0, 32, 0, 224]));
+        }
+        step++;
+      });
+    });
+    // Install WebSocket interception in the new document before exercising playback.
+    await audioPage.goto(origin + '/login');
+    await audioPage.evaluate(async () => {
+      document.body.innerHTML = '<button id="audio-toggle">Ääni päälle</button><input id="audio-volume" type="range" min="0" max="1" step="0.01" value="0.8"><span id="audio-status"></span>';
+      const { initAudio } = await import('/assets/audio.js');
+      initAudio(`ws://${location.host}/audio-test`);
+    });
+    await audioPage.locator('#audio-toggle').click();
+    try {
+      await audioPage.locator('#audio-status').filter({ hasText: 'Ääni käytössä' }).waitFor();
+    } catch (error) {
+      console.error('Audio diagnostic:', audioSteps, await audioPage.locator('#audio-status').textContent());
+      throw error;
+    }
+    assert.equal(await audioPage.locator('#audio-toggle').getAttribute('aria-pressed'), 'true');
+    await audioPage.locator('#audio-volume').evaluate(input => { input.value = '0.2'; input.dispatchEvent(new Event('input')); });
+    await audioPage.locator('#audio-toggle').click();
+    assert.equal(await audioPage.locator('#audio-status').textContent(), 'Ääni pois päältä.');
+    assert.equal(await audioPage.locator('#audio-toggle').getAttribute('aria-pressed'), 'false');
+    await audioPage.waitForTimeout(100);
+    assert.equal(audioClosed, true, 'Mute closes the audio transport');
+    await audioPage.close();
+    console.log('Browser stereo PCM audio rendering passed.');
     console.log('Desktop/mobile rendering, logout reachability and guest filtering passed.');
     console.log('Native form Origin regression passed: old policy null, production policy same-origin.');
   } finally {

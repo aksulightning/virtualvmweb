@@ -158,7 +158,7 @@ pub fn detail(vm: &Machine, session: &Session, devices: &[(String, String)], vnc
 /// Embeds only a domain UUID; the browser cannot select a proxy destination.
 pub fn console(vm: &Machine) -> String {
     format!(
-        r#"<a class="back" href="/machines/{}">← {}</a><div class="section-heading"><div><span class="eyebrow">ETÄNÄYTTÖ</span><h1>Konsoli</h1><p id="console-status" role="status">Yhdistetään…</p></div><div class="actions"><button id="send-cad">Ctrl + Alt + Del</button><button id="fullscreen">Koko näyttö</button></div></div><div id="console-screen" data-domain="{}"></div><script type="module" src="/assets/console.js"></script>"#,
+        r#"<a class="back" href="/machines/{}">← {}</a><div class="section-heading"><div><span class="eyebrow">ETÄNÄYTTÖ</span><h1>Konsoli</h1><p id="console-status" role="status">Yhdistetään…</p></div><div class="actions"><button id="send-cad">Ctrl + Alt + Del</button><button id="fullscreen">Koko näyttö</button></div></div><div class="actions"><button id="audio-toggle" aria-pressed="false">Ääni päälle</button><label>Äänenvoimakkuus<input id="audio-volume" type="range" min="0" max="1" step="0.01" value="0.8"></label><span id="audio-status" role="status">Ääni pois päältä.</span></div><div id="console-screen" data-domain="{}"></div><script type="module" src="/assets/console.js"></script>"#,
         vm.id,
         escape(&vm.name),
         vm.id
