@@ -81,6 +81,8 @@ async function run() {
       await page.close();
     }
     const audioPage = await browser.newPage();
+    audioPage.on('console', message => console.log('Audio browser:', message.text()));
+    audioPage.on('pageerror', error => console.error('Audio page error:', error.message));
     await audioPage.goto(origin + '/login');
     const rendered = await audioPage.evaluate(async () => {
       const { decodePcm } = await import('/assets/audio-rfb.js');
@@ -97,12 +99,15 @@ async function run() {
     });
     assert.deepEqual(rendered, [[0.5, 0.25], [-0.5, -0.25]], 'PCM reaches the browser audio output graph');
     let audioClosed = false;
+    const audioSteps = [];
     await audioPage.routeWebSocket('**/audio-test', socket => {
       let step = 0;
+      audioSteps.push('connected');
       socket.send(Buffer.from('RFB 003.008\n'));
       socket.onClose(() => { audioClosed = true; });
       socket.onMessage(message => {
         const bytes = Buffer.from(message);
+        audioSteps.push([step, [...bytes]]);
         if (step === 0) socket.send(Buffer.from([1, 1]));
         if (step === 1) socket.send(Buffer.alloc(4));
         if (step === 2) socket.send(Buffer.alloc(24));
@@ -125,7 +130,12 @@ async function run() {
       initAudio(`ws://${location.host}/audio-test`);
     });
     await audioPage.locator('#audio-toggle').click();
-    await audioPage.locator('#audio-status').filter({ hasText: 'Ääni käytössä' }).waitFor();
+    try {
+      await audioPage.locator('#audio-status').filter({ hasText: 'Ääni käytössä' }).waitFor();
+    } catch (error) {
+      console.error('Audio diagnostic:', audioSteps, await audioPage.locator('#audio-status').textContent());
+      throw error;
+    }
     assert.equal(await audioPage.locator('#audio-toggle').getAttribute('aria-pressed'), 'true');
     await audioPage.locator('#audio-volume').evaluate(input => { input.value = '0.2'; input.dispatchEvent(new Event('input')); });
     await audioPage.locator('#audio-toggle').click();
